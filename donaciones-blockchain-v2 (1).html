@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DonatraK — Cadena de Custodia de Donaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<style>
+  :root {
+    --paper:#F3F5FB; --panel:#FFFFFF; --ink:#141B3C; --ink-soft:#5C6178; --line:#E1E4EF;
+    --ok:#2F8F6C; --ok-bg:#E4F5EC; --bad:#C1443A; --bad-bg:#FBE7E4; --warn:#B4780F; --warn-bg:#FBF0D8;
+    --brand1:#1B2A6B; --brand2:#4C4FEB;
+    --st1:#2F8F6C; --st1-bg:#E4F5EC; --st2:#2E6FCE; --st2-bg:#E6EFFC; --st3:#7C5CE0; --st3-bg:#EFEAFC; --st4:#C98A2E; --st4-bg:#FAF0DC;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --type:'Special Elite', 'Courier New', monospace;
+  }
+  :root:not([data-theme="light"]) { @media (prefers-color-scheme: dark) {
+    --paper:#12141F; --panel:#1B1E2E; --ink:#E7E9F4; --ink-soft:#9EA2B8; --line:#333750;
+    --ok:#7FCBA9; --ok-bg:#1F332C; --bad:#E2837A; --bad-bg:#3A2420; --warn:#E0B15C; --warn-bg:#382D14;
+    --brand1:#8B93F0; --brand2:#B5B9FF;
+    --st1:#7FCBA9; --st1-bg:#1F332C; --st2:#7FAEEF; --st2-bg:#1E2B42; --st3:#B7A4F2; --st3-bg:#2A2440; --st4:#E0B15C; --st4-bg:#3A2E15;
+  }}
+  :root[data-theme="dark"] {
+    --paper:#12141F; --panel:#1B1E2E; --ink:#E7E9F4; --ink-soft:#9EA2B8; --line:#333750;
+    --ok:#7FCBA9; --ok-bg:#1F332C; --bad:#E2837A; --bad-bg:#3A2420; --warn:#E0B15C; --warn-bg:#382D14;
+    --brand1:#8B93F0; --brand2:#B5B9FF;
+    --st1:#7FCBA9; --st1-bg:#1F332C; --st2:#7FAEEF; --st2-bg:#1E2B42; --st3:#B7A4F2; --st3-bg:#2A2440; --st4:#E0B15C; --st4-bg:#3A2E15;
+  }
+  * { box-sizing:border-box; }
+  html { scroll-padding-top:env(safe-area-inset-top,0px); }
+  body {
+    margin:0; background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans',system-ui,sans-serif;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  header { max-width:980px; margin:0 auto; padding:2.4rem 1.5rem 1.4rem; border-bottom:3px double var(--line); }
+  .sello-header {
+    display:inline-block; font-family:var(--type); font-size:.7rem; letter-spacing:.06em;
+    color:var(--bad); border:2px solid var(--bad); border-radius:3px; padding:.15rem .5rem;
+    transform:rotate(-3deg); margin-bottom:.7rem; opacity:.85;
+  }
+  h1 { font-family:var(--type); font-weight:400; font-size:clamp(1.5rem,4vw,2.1rem); margin:0 0 .5rem; color:var(--ink); letter-spacing:.01em; }
+  header p { color:var(--ink-soft); max-width:70ch; line-height:1.6; margin:0; font-size:.95rem; }
+  main { max-width:980px; margin:0 auto; padding:1.6rem 1.5rem 3rem; display:grid; gap:1.4rem; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:1.3rem 1.4rem; box-shadow:0 1px 3px rgba(20,27,60,.06); }
+  .panel h2 {
+    font-family:var(--type); font-weight:400; font-size:.95rem; margin:0 0 1rem; color:var(--ink-soft);
+    letter-spacing:.05em; border-bottom:1px solid var(--line); padding-bottom:.5rem;
+  }
+  .grid-fields { display:grid; grid-template-columns:1fr 1fr; gap:.85rem 1rem; }
+  .field { display:flex; flex-direction:column; gap:.3rem; }
+  .field.span2 { grid-column:1/-1; }
+  label { font-size:.78rem; color:var(--ink-soft); font-family:var(--mono); }
+  .hint { font-size:.76rem; color:var(--ink-soft); margin-top:.15rem; font-style:italic; }
+  input, select, textarea {
+    font-family:'IBM Plex Sans',inherit; font-size:.93rem; padding:.5rem .65rem; border-radius:3px;
+    border:1px solid var(--line); background:var(--paper); color:var(--ink);
+  }
+  input:disabled, select:disabled { opacity:.55; }
+  textarea { resize:vertical; min-height:2.8rem; }
+  input:focus, select:focus, textarea:focus, button:focus-visible { outline:2px solid var(--ok); outline-offset:1px; }
+  .actions { display:flex; gap:.6rem; margin-top:1.1rem; flex-wrap:wrap; }
+  button { font-family:var(--type); font-size:.82rem; letter-spacing:.03em; border:none; border-radius:3px; padding:.62rem 1.05rem; cursor:pointer; }
+  .btn-primary { background:var(--brand2); color:#fff; }
+  .btn-primary:hover { opacity:.88; }
+  .btn-ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .btn-ghost:hover { border-color:var(--ink); }
+  .banner { display:flex; align-items:center; gap:.55rem; padding:.65rem .9rem; border-radius:3px; font-size:.9rem; font-weight:500; margin-bottom:.7rem; border-left:4px solid transparent; }
+  .banner.ok { background:var(--ok-bg); color:var(--ok); border-color:var(--ok); }
+  .banner.bad { background:var(--bad-bg); color:var(--bad); border-color:var(--bad); }
+  .note { font-size:.8rem; color:var(--ink-soft); line-height:1.65; }
+
+  .donacion { position:relative; border:1px solid var(--line); border-radius:12px; padding:1.1rem 1.2rem 1rem; margin-bottom:1.1rem; background:var(--panel); }
+  .donacion-head { display:flex; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-bottom:.9rem; padding-right:6.5rem; }
+  .donacion-head .tit { font-family:var(--type); font-weight:400; font-size:1.02rem; color:var(--ink); }
+  .donacion-head .sub { font-size:.78rem; color:var(--ink-soft); font-family:var(--mono); display:block; margin-top:.2rem; }
+  .sello {
+    position:absolute; top:1rem; right:1.1rem; transform:rotate(-7deg);
+    font-family:var(--type); font-size:.68rem; letter-spacing:.04em; padding:.3rem .6rem;
+    border:2px solid var(--ok); border-radius:4px; color:var(--ok); opacity:.9; white-space:nowrap;
+  }
+  .sello.bad { border-color:var(--bad); color:var(--bad); }
+
+  .block-list { position:relative; display:grid; gap:.85rem; padding-left:1.5rem; }
+  .block-list::before { content:''; position:absolute; left:.45rem; top:.35rem; bottom:.35rem; width:2px; background:var(--line); }
+  .block { position:relative; border:1px solid var(--line); border-radius:10px; padding:.85rem 1rem; background:var(--paper); }
+  .block::before {
+    content:''; position:absolute; left:-1.13rem; top:1.05rem; width:.55rem; height:.55rem;
+    border-radius:50%; background:var(--ok); border:2px solid var(--paper);
+  }
+  .block.invalid::before { background:var(--bad); }
+  .block-top { display:flex; justify-content:flex-end; margin-bottom:.5rem; }
+  .estado-pill { font-family:var(--mono); font-size:.72rem; padding:.2rem .6rem; border-radius:999px; border:1px solid var(--line); color:var(--ink-soft); }
+  .estado-pill.st1 { background:var(--st1-bg); color:var(--st1); border-color:var(--st1); }
+  .estado-pill.st2 { background:var(--st2-bg); color:var(--st2); border-color:var(--st2); }
+  .estado-pill.st3 { background:var(--st3-bg); color:var(--st3); border-color:var(--st3); }
+  .estado-pill.st4 { background:var(--st4-bg); color:var(--st4); border-color:var(--st4); }
+  .block-body { display:grid; grid-template-columns:1.1fr 1fr; gap:1rem; }
+  .block dl { display:grid; grid-template-columns:auto 1fr; gap:.2rem .7rem; margin:0; font-size:.87rem; align-content:start; }
+  .block dt { color:var(--ink-soft); }
+  .block dd { margin:0; word-break:break-word; }
+  .verif { border-left:1px dashed var(--line); padding-left:1rem; display:flex; flex-direction:column; gap:.4rem; }
+  .verif-title { font-family:var(--type); font-size:.72rem; color:var(--ink-soft); letter-spacing:.04em; margin-bottom:.1rem; }
+  .verif .row { display:flex; gap:.4rem; align-items:flex-start; font-family:var(--mono); font-size:.71rem; line-height:1.45; word-break:break-word; }
+  .verif .row .ico { flex:none; font-weight:600; }
+  .verif .row.pass { color:var(--ink-soft); }
+  .verif .row.pass .ico { color:var(--ok); }
+  .verif .row.fail { color:var(--bad); }
+  .verif .row.fail .ico { color:var(--bad); }
+  @media (max-width:700px) {
+    .block-body { grid-template-columns:1fr; }
+    .verif { border-left:none; border-top:1px dashed var(--line); padding-left:0; padding-top:.6rem; }
+  }
+
+  @media (max-width:560px) {
+    .grid-fields { grid-template-columns:1fr; }
+    .donacion-head { padding-right:0; }
+    .sello { position:static; display:inline-block; margin-top:.5rem; transform:rotate(-3deg); }
+  }
+
+  .brand { display:flex; align-items:center; gap:.7rem; margin-bottom:.6rem; }
+  .brand-mark { flex:none; }
+  .brand-word { font-family:'IBM Plex Sans',sans-serif; font-weight:700; font-size:clamp(1.5rem,4.2vw,2rem); letter-spacing:-.01em; }
+  .brand-word .w1 { color:var(--brand1); }
+  .brand-word .w2 { color:var(--brand2); }
+  .tagline { font-family:'IBM Plex Sans',sans-serif; font-weight:500; color:var(--ink); font-size:1rem; margin:0 0 .6rem; }
+  .brand-footer {
+    max-width:980px; margin:2rem auto 0; background:var(--brand1); color:#EDEEFC; border-radius:12px;
+    padding:1rem 1.4rem; display:flex; align-items:center; gap:.9rem; flex-wrap:wrap;
+  }
+  .brand-footer .brand-word.small { font-size:1.1rem; }
+  .brand-footer .brand-word.small .w1 { color:#fff; }
+  .brand-footer .brand-word.small .w2 { color:#B9BCFF; }
+  .brand-footer .foot-tag { font-size:.9rem; opacity:.9; }
+  .foot-wrap { max-width:980px; margin:0 auto; padding:0 1.5rem 2.4rem; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <svg class="brand-mark" width="44" height="52" viewBox="0 0 80 96">
+      <path d="M40 4 L74 17 V44 C74 68 58 85 40 93 C22 85 6 68 6 44 V17 Z" fill="none" stroke="var(--brand2)" stroke-width="5"/>
+      <path d="M40 32 L58 41 V59 L40 68 L22 59 V41 Z" fill="var(--brand1)"/>
+      <path d="M40 32 L58 41 L40 50 L22 41 Z" fill="var(--brand2)"/>
+    </svg>
+    <span class="brand-word"><span class="w1">Donatra</span><span class="w2">K</span></span>
+  </div>
+  <p class="tagline">Tu donación. Un recorrido. Una historia verificable.</p>
+  <p>DonatraK rastrea y verifica el recorrido de una donación desde el donante hasta el beneficiario final. Cada donación es su propia sub-cadena identificada por un ID de expediente: un movimiento nuevo solo es válido si sigue el estado permitido después del anterior, si el custodio de entrega coincide con el custodio que recibió en el movimiento previo, si la persona que lo registra prueba conocer su clave de actor, y si —en caso de distribución— la cantidad entregada no supera lo que efectivamente ingresó a la cadena.</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Registrar movimiento</h2>
+    <div class="grid-fields">
+      <div class="field span2">
+        <label for="donSel">Donación</label>
+        <select id="donSel" onchange="onDonChange()">
+          <option value="__nueva__">+ Nueva donación</option>
+        </select>
+        <div class="hint" id="donHint"></div>
+      </div>
+      <div class="field"><label for="donante">Donante</label><input id="donante" placeholder="Nombre o entidad donante"></div>
+      <div class="field"><label for="objeto">Objeto donado</label><input id="objeto" placeholder="Ej: cobijas, kits escolares..."></div>
+      <div class="field"><label for="cantidad">Cantidad</label><input id="cantidad" type="number" min="1" value="1"></div>
+      <div class="field"><label for="estado">Estado</label><select id="estado"></select></div>
+      <div class="field"><label for="responsable">Responsable que recibe / queda a cargo</label><input id="responsable" placeholder="Quién queda a cargo en este punto"></div>
+      <div class="field"><label for="ubicacion">Ubicación</label><input id="ubicacion" placeholder="Ciudad, bodega, punto de entrega..."></div>
+      <div class="field"><label for="actorNombre">Tu nombre (actor que certifica)</label><input id="actorNombre" placeholder="Quién registra este movimiento"></div>
+      <div class="field"><label for="actorClave">Tu clave de actor</label><input id="actorClave" type="password" placeholder="Se fija la 1ª vez que actúas"></div>
+      <div class="field span2"><label for="obs">Observaciones (opcional)</label><textarea id="obs" placeholder="Detalles adicionales del movimiento"></textarea></div>
+    </div>
+    <div class="actions">
+      <button class="btn-primary" onclick="registrarMovimiento()">Agregar bloque</button>
+      <button class="btn-ghost" onclick="render()">Verificar integridad</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Estado general</h2>
+    <div id="statusGlobal" class="banner ok">Verificando…</div>
+    <p class="note">La integridad de hash/enlace cubre <b>toda la cadena</b>. Los demás checks (transición, continuidad de custodia, identidad, conservación) se evalúan <b>por donación</b>.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Donaciones y su trazabilidad</h2>
+    <div id="donaciones"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Notas de diseño</h2>
+    <p class="note">
+      La <b>firma de actor</b> es una simulación educativa (hash de nombre+clave+datos), no criptografía de llave pública real — en producción cada actor tendría un par de llaves (p. ej. Ed25519) y firmaría con su llave privada. La cadena vive en memoria del navegador: para que donante, transportista y fundación vean el mismo historial, esto necesitaría un backend que persista y replique los bloques entre los nodos/actores (la parte "distribuida" del proyecto).
+    </p>
+  </section>
+</main>
+
+<script>
+  const ESTADOS = ['Registrada','En tránsito','Recibida por organización','Distribuida a beneficiario'];
+  const ESTADO_STAGE = { 'Registrada':'st1', 'En tránsito':'st2', 'Recibida por organización':'st3', 'Distribuida a beneficiario':'st4' };
+  const SIGUIENTES = {
+    'Registrada': ['En tránsito','Recibida por organización'],
+    'En tránsito': ['Recibida por organización'],
+    'Recibida por organización': ['En tránsito','Distribuida a beneficiario'],
+    'Distribuida a beneficiario': ['Distribuida a beneficiario']
+  };
+
+  class Bloque {
+    constructor(index, data, previousHash = '') {
+      this.index = index;
+      this.timestamp = new Date().toISOString();
+      this.data = data;
+      this.previousHash = previousHash;
+      this.nonce = 0;
+      this.hash = this.calcularHash();
+    }
+    calcularHash() {
+      return CryptoJS.SHA256(this.index + this.timestamp + JSON.stringify(this.data) + this.previousHash + this.nonce).toString();
+    }
+    minar(dificultad) { while (!this.hash.startsWith(dificultad)) { this.nonce++; this.hash = this.calcularHash(); } }
+  }
+
+  class CadenaDonaciones {
+    constructor(dificultad = '00') {
+      this.dificultad = dificultad;
+      const genesis = new Bloque(0, { tipo:'Génesis', detalle:'Apertura de la cadena de custodia' });
+      genesis.minar(this.dificultad);
+      this.chain = [genesis];
+      this.actores = {};
+    }
+    ultimoBloque() { return this.chain[this.chain.length - 1]; }
+    agregarBloque(data) {
+      const anterior = this.ultimoBloque();
+      const b = new Bloque(anterior.index + 1, data, anterior.hash);
+      b.minar(this.dificultad);
+      this.chain.push(b);
+      return b;
+    }
+    porDonacion(id) { return this.chain.filter(b => b.data.donacionId === id); }
+    donacionesIds() { return [...new Set(this.chain.filter(b => b.data.donacionId).map(b => b.data.donacionId))]; }
+    verificarActor(nombre, clave) {
+      const h = CryptoJS.SHA256(clave).toString();
+      if (!this.actores[nombre]) { this.actores[nombre] = h; return true; }
+      return this.actores[nombre] === h;
+    }
+    integridadGlobal() {
+      for (let i = 0; i < this.chain.length; i++) {
+        const b = this.chain[i];
+        if (b.hash !== b.calcularHash()) return { ok:false, index:b.index, motivo:'hash no coincide' };
+        if (i > 0 && b.previousHash !== this.chain[i-1].hash) return { ok:false, index:b.index, motivo:'enlace roto' };
+      }
+      return { ok:true };
+    }
+  }
+
+  const cadena = new CadenaDonaciones();
+
+  function id(prefix) { return CryptoJS.SHA256(prefix + Math.random()).toString().slice(0,10); }
+  (function semilla() {
+    const donId = id('semilla');
+    const base = { donacionId: donId, donante:'Ferretería El Roble', objeto:'Kits de herramientas', cantidadTotal:20 };
+    const movs = [
+      { estado:'Registrada', cantidad:20, responsable:'Fundación Manos Unidas', responsableAnterior:null, ubicacion:'Popayán, Cauca', obs:'', actor:'Ferretería El Roble' },
+      { estado:'En tránsito', cantidad:20, responsable:'Transportes La Ruta', responsableAnterior:'Fundación Manos Unidas', ubicacion:'Vía Popayán–Cali', obs:'', actor:'Fundación Manos Unidas' },
+      { estado:'Recibida por organización', cantidad:20, responsable:'Fundación Manos Unidas', responsableAnterior:'Transportes La Ruta', ubicacion:'Bodega central, Cali', obs:'20 kits, ninguno dañado', actor:'Transportes La Ruta' },
+      { estado:'Distribuida a beneficiario', cantidad:20, responsable:'Comunidad El Naranjal', responsableAnterior:'Fundación Manos Unidas', ubicacion:'El Naranjal, Cauca', obs:'Acta firmada', actor:'Fundación Manos Unidas' }
+    ];
+    movs.forEach(m => {
+      const data = { ...base, ...m, identidadVerificada:true };
+      data.firma = CryptoJS.SHA256(data.actor + 'semilla' + JSON.stringify(data)).toString();
+      cadena.agregarBloque(data);
+    });
+  })();
+
+  function poblarEstadoSelect(opciones) {
+    document.getElementById('estado').innerHTML = opciones.map(e => `<option>${e}</option>`).join('');
+  }
+  function poblarDonSelect() {
+    const sel = document.getElementById('donSel');
+    const actual = sel.value;
+    const ids = cadena.donacionesIds();
+    sel.innerHTML = '<option value="__nueva__">+ Nueva donación</option>' +
+      ids.map(i => {
+        const bs = cadena.porDonacion(i);
+        const last = bs[bs.length - 1].data;
+        return `<option value="${i}">${last.donante} — ${last.objeto} (${i})</option>`;
+      }).join('');
+    if ([...sel.options].some(o => o.value === actual)) sel.value = actual;
+    onDonChange();
+  }
+  function onDonChange() {
+    const sel = document.getElementById('donSel').value;
+    const hint = document.getElementById('donHint');
+    const camposDon = ['donante','objeto','cantidad'];
+    if (sel === '__nueva__') {
+      camposDon.forEach(c => document.getElementById(c).disabled = false);
+      poblarEstadoSelect(['Registrada']);
+      hint.textContent = 'Se creará un nuevo ID de donación con estado inicial "Registrada".';
+    } else {
+      const bs = cadena.porDonacion(sel);
+      const last = bs[bs.length - 1].data;
+      document.getElementById('donante').value = last.donante;
+      document.getElementById('objeto').value = last.objeto;
+      document.getElementById('cantidad').value = last.estado === 'Distribuida a beneficiario' ? '' : last.cantidadTotal;
+      camposDon.forEach(c => document.getElementById(c).disabled = true);
+      poblarEstadoSelect(SIGUIENTES[last.estado] || []);
+      const distribuido = bs.filter(b => b.data.estado === 'Distribuida a beneficiario').reduce((s,b) => s + Number(b.data.cantidad), 0);
+      hint.textContent = last.estado === 'Distribuida a beneficiario'
+        ? `Custodio actual: ${last.responsable}. Distribuido hasta ahora: ${distribuido}/${last.cantidadTotal}. Indica la cantidad de ESTE reparto.`
+        : `Custodio actual: ${last.responsable}. El nuevo movimiento debe partir de aquí.`;
+    }
+  }
+
+  function registrarMovimiento() {
+    const donSel = document.getElementById('donSel').value;
+    const actorNombre = document.getElementById('actorNombre').value.trim();
+    const actorClave = document.getElementById('actorClave').value;
+    if (!actorNombre || !actorClave) { alert('Indica tu nombre y clave de actor.'); return; }
+    const identidadVerificada = cadena.verificarActor(actorNombre, actorClave);
+    if (!identidadVerificada) { alert('La clave no coincide con la registrada antes para "' + actorNombre + '". El bloque se guardará marcado como identidad NO verificada.'); }
+
+    let donacionId, cantidadTotal, responsableAnterior;
+    if (donSel === '__nueva__') {
+      donacionId = id(document.getElementById('donante').value);
+      cantidadTotal = Number(document.getElementById('cantidad').value) || 1;
+      responsableAnterior = null;
+    } else {
+      donacionId = donSel;
+      const bs = cadena.porDonacion(donSel);
+      const last = bs[bs.length - 1].data;
+      cantidadTotal = last.cantidadTotal;
+      responsableAnterior = last.responsable;
+    }
+
+    const estado = document.getElementById('estado').value;
+    let cantidad = estado === 'Distribuida a beneficiario' && donSel !== '__nueva__'
+      ? Number(document.getElementById('cantidad').value) || 0
+      : cantidadTotal;
+
+    const data = {
+      donacionId, cantidadTotal,
+      donante: document.getElementById('donante').value.trim() || 'Sin especificar',
+      objeto: document.getElementById('objeto').value.trim() || 'Sin especificar',
+      cantidad, estado,
+      responsable: document.getElementById('responsable').value.trim() || 'Sin especificar',
+      responsableAnterior,
+      ubicacion: document.getElementById('ubicacion').value.trim() || 'Sin especificar',
+      obs: document.getElementById('obs').value.trim(),
+      actor: actorNombre, identidadVerificada
+    };
+    data.firma = CryptoJS.SHA256(actorNombre + actorClave + JSON.stringify(data)).toString();
+
+    cadena.agregarBloque(data);
+    ['responsable','ubicacion','obs','actorClave'].forEach(f => document.getElementById(f).value = '');
+    if (donSel === '__nueva__') { document.getElementById('donante').value = ''; document.getElementById('objeto').value = ''; document.getElementById('cantidad').value = 1; }
+    poblarDonSelect();
+    render();
+  }
+
+  function truncar(h) { return h.slice(0,14) + '…' + h.slice(-6); }
+
+  function render() {
+    const gi = cadena.integridadGlobal();
+    const gEl = document.getElementById('statusGlobal');
+    if (!gi.ok) { gEl.className = 'banner bad'; gEl.textContent = `Cadena inválida: bloque #${gi.index} — ${gi.motivo}.`; }
+    else { gEl.className = 'banner ok'; gEl.textContent = `Cadena íntegra — ${cadena.chain.length} bloques verificados.`; }
+
+    const cont = document.getElementById('donaciones');
+    cont.innerHTML = cadena.donacionesIds().map(donId => {
+      const bs = cadena.porDonacion(donId);
+      const last = bs[bs.length - 1].data;
+      let distribuido = 0, problemas = 0;
+
+      const bloquesHtml = bs.map((b, i) => {
+        const d = b.data;
+        const prevData = i > 0 ? bs[i-1].data : null;
+        const globalPrev = b.index > 0 ? cadena.chain[b.index - 1] : null;
+
+        const hashOk = b.hash === b.calcularHash();
+        const enlaceOk = b.index === 0 || b.previousHash === globalPrev.hash;
+        const transOk = i === 0 ? d.estado === 'Registrada' : (SIGUIENTES[prevData.estado] || []).includes(d.estado);
+        const custodiaOk = i === 0 ? true : d.responsableAnterior === prevData.responsable;
+        let conservOk = true;
+        if (d.estado === 'Distribuida a beneficiario') {
+          distribuido += Number(d.cantidad);
+          conservOk = distribuido <= d.cantidadTotal;
+        }
+        const bloqueOk = hashOk && enlaceOk && transOk && custodiaOk && conservOk && d.identidadVerificada;
+        if (!bloqueOk) problemas++;
+
+        const fila = (ok, texto) => `<div class="row ${ok?'pass':'fail'}"><span class="ico">${ok?'✓':'✗'}</span><span>${texto}</span></div>`;
+
+        const filas = [
+          fila(hashOk, `hash recalculado ${truncar(b.calcularHash())} = guardado ${truncar(b.hash)}`),
+          fila(enlaceOk, b.index === 0
+            ? 'bloque génesis de la cadena, no enlaza a nada anterior'
+            : `enlace previousHash ${truncar(b.previousHash)} = hash de bloque #${b.index-1} ${truncar(globalPrev.hash)}`),
+          fila(transOk, i === 0
+            ? `estado inicial "${d.estado}" es el único punto de partida válido`
+            : `transición "${prevData.estado}" → "${d.estado}" está permitida`),
+          fila(custodiaOk, i === 0
+            ? 'primer movimiento de la donación, custodia inicial'
+            : `recibe de "${d.responsableAnterior || '—'}" = responsable del bloque anterior "${prevData.responsable}"`),
+          fila(conservOk, d.estado === 'Distribuida a beneficiario'
+            ? `acumulado distribuido ${distribuido} ≤ cantidad total ${d.cantidadTotal}`
+            : 'conservación de cantidad no aplica en este estado'),
+          fila(d.identidadVerificada, `clave de "${d.actor}" coincide con la registrada para ese actor`)
+        ].join('');
+
+        return `
+          <article class="block ${bloqueOk ? '' : 'invalid'}">
+            <div class="block-top">
+              <span class="estado-pill ${ESTADO_STAGE[d.estado] || ''}">${d.estado}</span>
+            </div>
+            <div class="block-body">
+              <dl>
+                <dt>Responsable</dt><dd>${d.responsable}${d.responsableAnterior ? ` (recibe de ${d.responsableAnterior})` : ' (custodia inicial)'}</dd>
+                <dt>Ubicación</dt><dd>${d.ubicacion}</dd>
+                <dt>Cantidad</dt><dd>${d.cantidad}${d.estado==='Distribuida a beneficiario' ? ` de ${d.cantidadTotal} (acumulado: ${distribuido})` : ''}</dd>
+                <dt>Certificado por</dt><dd>${d.actor}</dd>
+                ${d.obs ? `<dt>Observaciones</dt><dd>${d.obs}</dd>` : ''}
+              </dl>
+              <div class="verif">
+                <div class="verif-title">Verificación de este bloque</div>
+                ${filas}
+              </div>
+            </div>
+          </article>`;
+      }).join('');
+
+      return `
+        <div class="donacion">
+          <span class="sello ${problemas===0?'':'bad'}">${problemas===0 ? 'CUSTODIA VÁLIDA' : 'REVISAR EXPEDIENTE'}</span>
+          <div class="donacion-head">
+            <div>
+              <span class="tit">${last.donante} — ${last.objeto}</span>
+              <span class="sub">Exp. ${donId} · ${bs.length} movimiento(s) · cantidad total ${last.cantidadTotal}</span>
+            </div>
+          </div>
+          <div class="block-list">${bloquesHtml}</div>
+        </div>`;
+    }).join('');
+  }
+
+  poblarDonSelect();
+  render();
+</script>
+
+</body>
+</html>
